@@ -1,0 +1,224 @@
+.<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tetris Game</title>
+  <style>
+    body {
+      margin: 0;
+      padding-top: 20px;
+      background: linear-gradient(135deg, #0f0f0f, #1f1f1f);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100vh;
+      color: white;
+      font-family: sans-serif;
+    }
+    #container {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    canvas {
+      background: #1e1e1e;
+      border: 3px solid #444;
+      border-radius: 8px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.7);
+    }
+    #sidebar {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    #title {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #0ff;
+    }
+    #score {
+      font-size: 1.2rem;
+      color: #0f0;
+    }
+    #startBtn {
+      padding: 10px 20px;
+      background: linear-gradient(90deg, #8e2de2, #4a00e0);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: transform 0.2s;
+      margin-bottom: 15px;
+    }
+    #startBtn:hover {
+      transform: scale(1.05);
+    }
+    #controls {
+      font-size: 0.9rem;
+      color: #ccc;
+      line-height: 1.5;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <canvas id="game" width="300" height="600"></canvas>
+    <div id="sidebar">
+      <div id="title">Tetris Gabut KPPN Painan</div>
+      <div id="score">Score: 0</div>
+      <button id="startBtn">Start Game</button>
+      <div id="controls">
+        Kontrol:<br>
+        ↑ : Rotasi<br>
+        ↓ : Turun<br>
+        ← : Kiri<br>
+        → : Kanan
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const ROWS = 20, COLS = 10, BLOCK_SIZE = 30;
+    const COLORS = ["#1e1e1e", "#f00", "#0f0", "#00f", "#ff0", "#0ff", "#f0f", "#fa0"];
+    const SHAPES = [
+      [],
+      [[1,1,1,1]],
+      [[2,2],[2,2]],
+      [[0,3,0],[3,3,3]],
+      [[4,0,0],[4,4,4]],
+      [[0,0,5],[5,5,5]],
+      [[6,6,0],[0,6,6]],
+      [[0,7,7],[7,7,0]],
+    ];
+
+    let grid, piece, running = false, score = 0;
+
+    function randomPiece() {
+      const index = Math.floor(Math.random() * (SHAPES.length - 1)) + 1;
+      return { shape: SHAPES[index], color: COLORS[index], x: Math.floor(COLS/2)-1, y:0 };
+    }
+
+    function initGrid() {
+      return Array.from({length: ROWS}, () => Array(COLS).fill(0));
+    }
+
+    function draw() {
+      ctx.fillStyle = COLORS[0];
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let y=0; y<ROWS; y++) {
+        for (let x=0; x<COLS; x++) {
+          if (grid[y][x]) {
+            ctx.fillStyle = COLORS[grid[y][x]];
+            ctx.fillRect(x*BLOCK_SIZE, y*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+          }
+        }
+      }
+      piece.shape.forEach((row, dy) => {
+        row.forEach((value, dx) => {
+          if (value !== 0) {
+            ctx.fillStyle = piece.color;
+            ctx.fillRect((piece.x+dx)*BLOCK_SIZE, (piece.y+dy)*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+          }
+        });
+      });
+      document.getElementById("score").innerText = "Score: " + score;
+    }
+
+    function mergePiece() {
+      piece.shape.forEach((row, dy) => {
+        row.forEach((value, dx) => {
+          if (value !== 0) {
+            grid[piece.y + dy] && (grid[piece.y + dy][piece.x + dx] = COLORS.indexOf(piece.color));
+          }
+        });
+      });
+    }
+
+    function clearLines() {
+      let linesCleared = 0;
+      grid = grid.filter(row => {
+        if (row.every(cell => cell !== 0)) {
+          linesCleared++;
+          return false;
+        }
+        return true;
+      });
+      while (grid.length < ROWS) {
+        grid.unshift(Array(COLS).fill(0));
+      }
+      score += linesCleared * 100;
+    }
+
+    function collide(shape = piece.shape, posX = piece.x, posY = piece.y) {
+      return shape.some((row, dy) => {
+        return row.some((value, dx) => {
+          if (value !== 0) {
+            const newY = posY + dy;
+            const newX = posX + dx;
+            return newY >= ROWS || newX < 0 || newX >= COLS || (grid[newY] && grid[newY][newX] !== 0);
+          }
+          return false;
+        });
+      });
+    }
+
+    function rotate(shape) {
+      return shape[0].map((_, i) => shape.map(row => row[i])).reverse();
+    }
+
+    function drop() {
+      piece.y++;
+      if (collide()) {
+        piece.y--;
+        mergePiece();
+        clearLines();
+        piece = randomPiece();
+        if (collide()) {
+          running = false;
+          alert("Game Over! Your score: " + score);
+        }
+      }
+      draw();
+    }
+
+    function startGame() {
+      grid = initGrid();
+      piece = randomPiece();
+      score = 0;
+      running = true;
+      draw();
+      gameLoop();
+    }
+
+    function gameLoop() {
+      if (!running) return;
+      drop();
+      setTimeout(gameLoop, 500);
+    }
+
+    document.getElementById("startBtn").addEventListener("click", startGame);
+
+    window.addEventListener("keydown", e => {
+      if (!running) return;
+      if (e.key === "ArrowLeft") piece.x--;
+      if (e.key === "ArrowRight") piece.x++;
+      if (e.key === "ArrowDown") drop();
+      if (e.key === "ArrowUp") {
+        const rotated = rotate(piece.shape);
+        if (!collide(rotated, piece.x, piece.y)) {
+          piece.shape = rotated;
+        }
+      }
+      if (collide()) piece.x += (e.key === "ArrowLeft") ? 1 : (e.key === "ArrowRight") ? -1 : 0;
+      draw();
+    });
+  </script>
+</body>
+</html>
